@@ -4,13 +4,17 @@ public interface IPaymentHandler {
 
 	IPaymentOrder getOrder(String id);
 
-	void onSuccess(String orderId, String transId);
+	void onOrderPaied(String orderId, String transId);
 
-	boolean isOrderDealed(String orderId);
+	boolean isOrderPaied(String orderId);
 
-	String getRefundNo();
+	boolean isOrderPayable(String orderId);
 
-	void onRefundSuccess(String order, String batchNo);
+	String getMerId(String port);
 
-	boolean isOrderRefund(String orderId);
+	String getKey(String port);
+
+	void setOrderPaymentPort(String orderId, String type);
+
+	Object getMerEmail();
 }

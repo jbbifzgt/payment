@@ -8,6 +8,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 
+import lion.dev.io.FileUtil;
 import lion.dev.lang.MapJ;
 
 public class HttpUtil {
@@ -15,23 +16,17 @@ public class HttpUtil {
 	public String get(String url) {
 
 		URL request;
-		StringBuffer buf = new StringBuffer();
+		String reuslt = "";
 		try {
 			request = new URL(url);
 			HttpURLConnection urlConnection = (HttpURLConnection) request.openConnection();
-			BufferedReader in = new BufferedReader(new InputStreamReader(urlConnection.getInputStream()));
-
-			String tmp = "";
-			while ((tmp = in.readLine()) != null) {
-				buf.append(tmp).append("\n");
-			}
+			reuslt = FileUtil.read(urlConnection.getInputStream());
 
 			urlConnection.disconnect();
 		} catch (Exception e) {
 		}
 
-		return buf.toString();
-
+		return reuslt;
 	}
 
 	public String post(String url, MapJ param) {

@@ -10,12 +10,9 @@ import lion.dev.lang.MapJ;
  */
 public interface IPaymentPort {
 
-	String buildRequestPage(IPaymentOrder order, String paymentChannel);
+	String buildRequestPage(IPaymentOrder order, String channel);
 
 	String notifyPaymentResult(MapJ param);
 
-	String refund(MapJ param);
-
-	String notifyRefund(MapJ param);
-
+	String getOrderId(MapJ param);
 }

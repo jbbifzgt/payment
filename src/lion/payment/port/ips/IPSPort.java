@@ -4,12 +4,16 @@ import java.util.Date;
 
 import lion.dev.lang.MapJ;
 import lion.dev.text.Formater;
+import lion.framework.core.conf.Config;
+import lion.framework.core.conf.ConfigManager;
+import lion.framework.core.web.exception.WebException;
+import lion.payment.IPaymentHandler;
 import lion.payment.IPaymentOrder;
 import lion.payment.IPaymentPort;
-import lion.payment.PaymentConfig;
+import lion.payment.anno.PaymentHandlers;
 import lion.payment.anno.PaymentPort;
 
-import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.lang.StringUtils;
 
 /**
  * @author carryon
@@ -21,27 +25,31 @@ import org.apache.commons.codec.digest.DigestUtils;
 public class IPSPort implements IPaymentPort {
 
 	private static final String PORT_NAME = "ips";
-
-	private MapJ portConfig;
+	private static final String PORT_URL = "https://pay.ips.com/ipayment.aspx";
 
 	@Override
 	public String buildRequestPage(IPaymentOrder order, String paymentChannel) {
 
-		init();
+		Config config = ConfigManager.getConfig("framework");
+		IPaymentHandler handler = PaymentHandlers.get(config.getString("framework.payment.handler"));
+		if (handler == null) { return null; }
 
 		MapJ orderParam = new MapJ();
-		orderParam.put("Mer_code", portConfig.getString("merId", ""));
+		orderParam.put("Mer_code", handler.getMerId(PORT_NAME));
 		orderParam.put("Billno", order.getId());
-		orderParam.put("Amount", order.getAmount());
+		orderParam.put("Amount", Formater.formateNumber("#0.00", order.getAmount()));
 		orderParam.put("Date", Formater.formatDate("yyyyMMdd", new Date()));
 		orderParam.put("Currency_Type", "RMB");
 		orderParam.put("Gateway_Type", "01");
+		orderParam.put("Lang", "GB");
 		orderParam.put("OrderEncodeType", 5);
 		orderParam.put("RetEncodeType", 17);
-		orderParam.put("Rettype", 1);
-		orderParam.put("ServerUrl", portConfig.getString("notifyURL", PaymentConfig.DEFAULT_NOTIFY_URL));
+		orderParam.put("Rettype", 0);
 
-		String sign = signMap(orderParam);
+		String serverurl = config.getString("framework.payment.serverurl", "");
+		orderParam.put("ServerUrl", StringUtils.stripEnd(serverurl, "/") + "/payment/pay/notify");
+
+		String sign = signMap(orderParam, handler.getKey(PORT_NAME));
 		orderParam.put("SignMD5", sign);
 
 		String result = buildPage(orderParam);
@@ -52,69 +60,67 @@ public class IPSPort implements IPaymentPort {
 	@Override
 	public String notifyPaymentResult(MapJ param) {
 
-		init();
-		String succ = param.getString("succ");
-		if (!"Y".equals(succ)) { return "支付未成功"; }
+		Config config = ConfigManager.getConfig("framework");
+		IPaymentHandler handler = PaymentHandlers.get(config.getString("framework.payment.handler"));
+		if (handler == null) { return null; }
 
-		String billno = param.getString("billno");
+		String succ = param.getString("succ");
+		if (!"Y".equals(succ)) { return "success"; } // 支付失败不处理
+
+		String orderId = param.getString("billno");
 		String txn_id = param.getString("ipsbillno");
 
-		String md5 = signResponse(param);
+		IPaymentOrder order = handler.getOrder(orderId);
+		if (order == null) { throw new WebException("Order Not Found"); }
+
+		String md5 = signResponse(param, handler.getKey(PORT_NAME));
 
 		String signature = param.getString("signature");
-		if (!md5.equalsIgnoreCase(signature)) { return ""; }
+		if (!md5.equalsIgnoreCase(signature)) { return "fail"; }
 
-		if (!PaymentConfig.paymentHandler.isOrderDealed(billno)) {
-			PaymentConfig.paymentHandler.onSuccess(billno, txn_id);
+		if (!handler.isOrderPaied(orderId)) {
+			handler.onOrderPaied(orderId, txn_id);
 		}
-
-		return "订单：" + billno + " 已支付成功";
+		return "success";
 	}
 
-	private String signResponse(MapJ param) {
+	private String signResponse(MapJ param, String merKey) {
 
 		StringBuffer buf = new StringBuffer();
-		buf.append(param.getString("billno"));
-		buf.append(param.getString("Currency_type"));
-		buf.append(param.getString("amount"));
-		buf.append(param.getString("date"));
-		buf.append(param.getString("succ"));
-		buf.append(param.getString("ipsbillno"));
-		buf.append(param.getString("retencodetype"));
-
-		buf.append(portConfig.getString("key"));
-
-		return DigestUtils.md5Hex(buf.toString());
+		buf.append("billno" + param.getString("billno"));
+		buf.append("currencytype" + param.getString("Currency_type"));
+		buf.append("amount" + param.getString("amount"));
+		buf.append("date" + param.getString("date"));
+		buf.append("succ" + param.getString("succ"));
+		buf.append("ipsbillno" + param.getString("ipsbillno"));
+		buf.append("retencodetype" + param.getString("retencodetype"));
+		buf.append(merKey);
+		cryptix.jce.provider.MD5 md5 = new cryptix.jce.provider.MD5();
+		return md5.toMD5(buf.toString());
 	}
 
-	private void init() {
-
-		if (portConfig == null) {
-			portConfig = PaymentConfig.getPortConfig(PORT_NAME);
-		}
-	}
-
-	private String signMap(MapJ orderParam) {
+	private String signMap(MapJ orderParam, String merKey) {
 
 		StringBuffer sbu = new StringBuffer();
 
-		sbu.append(orderParam.getString("Billno"));
-		sbu.append(orderParam.getString("Currency_Type"));
-		sbu.append(orderParam.getString("Amount"));
-		sbu.append(orderParam.getString("Date"));
-		sbu.append(orderParam.getString("OrderEncodeType"));
-		sbu.append(portConfig.getString("key"));
+		sbu.append("billno" + orderParam.getString("Billno"));
+		sbu.append("currencytype" + orderParam.getString("Currency_Type"));
+		sbu.append("amount" + orderParam.getString("Amount"));
+		sbu.append("date" + orderParam.getString("Date"));
+		sbu.append("orderencodetype" + orderParam.getString("OrderEncodeType"));
+		sbu.append(merKey);
 
-		return DigestUtils.md5Hex(sbu.toString());
+		cryptix.jce.provider.MD5 md5 = new cryptix.jce.provider.MD5();
+		return md5.toMD5(sbu.toString()).toLowerCase();
 	}
 
 	private String buildPage(MapJ orderParam) {
 
 		StringBuffer buf = new StringBuffer();
 
-		buf.append("<html><head><meta http-equiv='Content-Type' content='text/html; charset=" + portConfig.getString("charset", "UTF-8") + "'></head><body>");
+		buf.append("<html><head><meta http-equiv='Content-Type' content='text/html; charset=utf-8'></head><body>");
 
-		buf.append("<form action='" + portConfig.getString("orderURL") + "' method='POST' target='_blank'>");
+		buf.append("<form action='" + PORT_URL + "' method='POST' target='_blank'>");
 		for (String key : orderParam.keySet()) {
 			buf.append("<input type=\"hidden\" name=\"" + key + "\"   value=\"" + orderParam.getString(key) + "\">");
 		}
@@ -126,15 +132,8 @@ public class IPSPort implements IPaymentPort {
 	}
 
 	@Override
-	public String refund(MapJ param) {
+	public String getOrderId(MapJ param) {
 
-		throw new UnsupportedOperationException("不支持当前网关[ips]在线退款");
+		return param.getString("billno");
 	}
-
-	@Override
-	public String notifyRefund(MapJ param) {
-
-		throw new UnsupportedOperationException("不支持当前网关[ips]在线退款");
-	}
-
 }

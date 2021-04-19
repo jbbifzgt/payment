@@ -1,6 +1,5 @@
 package lion.payment;
 
-import java.util.Date;
 
 /**
  * @author carryon
@@ -14,16 +13,8 @@ public interface IPaymentOrder {
 
 	double getAmount();
 
-	String getProductId();
-
 	String getOrderName();
 
-	String getOrderCategory();
-
-	String getOrderDescribtion();
-
-	String getTransId();
-
-	Date getTransDate();
+	String getPortName();
 
 }

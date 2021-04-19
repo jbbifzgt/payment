@@ -1,7 +1,5 @@
 package lion.payment.test.impl;
 
-import java.util.Date;
-
 import lion.payment.IPaymentOrder;
 
 public class Order implements IPaymentOrder {
@@ -12,6 +10,8 @@ public class Order implements IPaymentOrder {
 	private String orderName;
 	private String orderDescribtion;
 	private String orderCategory;
+	private int status;
+	private String port;
 
 	@Override
 	public String getId() {
@@ -35,7 +35,6 @@ public class Order implements IPaymentOrder {
 		this.amount = amount;
 	}
 
-	@Override
 	public String getProductId() {
 
 		return productId;
@@ -57,7 +56,6 @@ public class Order implements IPaymentOrder {
 		this.orderName = orderName;
 	}
 
-	@Override
 	public String getOrderDescribtion() {
 
 		return orderDescribtion;
@@ -68,7 +66,6 @@ public class Order implements IPaymentOrder {
 		this.orderDescribtion = orderDescribtion;
 	}
 
-	@Override
 	public String getOrderCategory() {
 
 		return orderCategory;
@@ -80,17 +77,29 @@ public class Order implements IPaymentOrder {
 	}
 
 	@Override
-	public String getTransId() {
+	public String getPortName() {
 
-		// TODO Auto-generated method stub
-		return null;
+		return this.port;
 	}
 
-	@Override
-	public Date getTransDate() {
+	public int getStatus() {
 
-		// TODO Auto-generated method stub
-		return null;
+		return status;
+	}
+
+	public void setStatus(int status) {
+
+		this.status = status;
+	}
+
+	public String getPort() {
+
+		return port;
+	}
+
+	public void setPort(String port) {
+
+		this.port = port;
 	}
 
 }
